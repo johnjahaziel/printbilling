@@ -22,8 +22,14 @@ class _HomescreenState extends State<Homescreen> {
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             children: [
-              const Icon(Icons.menu, color: Colors.black),
-              const SizedBox(width: 10),
+              IconButton(
+                onPressed: () {},
+                icon: Icon(
+                  Icons.menu,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(width: 10),
               Expanded(
                 child: TextField(
                   decoration: InputDecoration(
@@ -32,16 +38,14 @@ class _HomescreenState extends State<Homescreen> {
                     filled: true,
                     fillColor: Colors.grey.shade200,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(2),
                       borderSide: BorderSide.none,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              _topButton("+"),
-              _topButton("Bill 1"),
-              _topButton("MENU CARD"),
+              SizedBox(width: 30),
+              _topButton("PRINT"),
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.red),
                 onPressed: () {},
@@ -97,29 +101,47 @@ class _HomescreenState extends State<Homescreen> {
       /// BOTTOM BAR
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(12),
-        color: Colors.teal,
+        color: const Color.fromARGB(255, 0, 87, 150),
         child: Row(
           children: const [
-            Text("ITEMS: 5",
-                style: TextStyle(color: Colors.white, fontSize: 16)),
+            Text(
+              "ITEMS: 5",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16
+              )
+            ),
             Spacer(),
-            Text("PAY ₹1230",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              "PAY ₹1230",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold
+              )
+            ),
           ],
         ),
       ),
     );
   }
 
-  static Widget _topButton(String title) {
+  Widget _topButton(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ElevatedButton(
+      child: RawMaterialButton(
+        fillColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20)
+        ),
         onPressed: () {},
-        child: Text(title),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: const Color.fromARGB(255, 0, 87, 150),
+            fontWeight: FontWeight.bold
+          ),
+        ),
       ),
     );
   }
@@ -130,18 +152,44 @@ class _BillRow extends StatelessWidget {
   final String name;
   final int price;
 
-  const _BillRow({required this.name, required this.price});
+  const _BillRow({
+    required this.name,
+    required this.price,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(
-        name,
-        style: TextStyle(
-          fontSize: 12
-        ),
+    return RawMaterialButton(
+      onPressed: () {},
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 10),
+            child: Text(
+              name,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "₹ $price",
+                style: const TextStyle(fontSize: 12),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.delete,
+                  size: 18,
+                ),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ],
       ),
-      trailing: Text("₹ $price"),
     );
   }
 }
@@ -158,8 +206,9 @@ class _ItemButton extends StatelessWidget {
     return RawMaterialButton(
       onPressed: () {},
       shape: RoundedRectangleBorder(
+        borderRadius: BorderRadiusGeometry.circular(5),
         side: BorderSide(
-          color: Colors.black
+          color: Colors.black,
         )
       ),
       child: Padding(
