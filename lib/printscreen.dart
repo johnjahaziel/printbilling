@@ -2,9 +2,17 @@ import 'package:blue_thermal_printer_plus/blue_thermal_printer_plus.dart';
 import 'package:blue_thermal_printer_plus/bluetooth_device.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:printer/homescreen.dart';
 
 class Printscreen extends StatefulWidget {
-  const Printscreen({super.key});
+  final List<BillItem> billItems;
+  final int grandTotal;
+
+  const Printscreen({
+    super.key,
+    required this.billItems,
+    required this.grandTotal,
+  });
 
   @override
   State<Printscreen> createState() => _PrintscreenState();
@@ -40,7 +48,7 @@ class _PrintscreenState extends State<Printscreen> {
     setState(() => isConnected = status ?? false);
   }
 
-  void printTestBill() async {
+  void printBill() async {
     if (!(await printer.isConnected ?? false)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Printer not connected")),
@@ -56,57 +64,50 @@ class _PrintscreenState extends State<Printscreen> {
 
     printer.printCustom("--------------------------------", 1, 1);
 
-    // BILL INFO
+    // DATE & TIME
+    final now = DateTime.now();
     printer.printLeftRight(
-      "SERIAL NO 1",
-      "16-12-2025",
+      "DATE",
+      "${now.day}-${now.month}-${now.year}",
       1,
     );
     printer.printLeftRight(
-      "BILL NO 251216135",
-      "11:20:26 AM",
+      "TIME",
+      "${now.hour}:${now.minute}",
       1,
     );
 
     printer.printCustom("--------------------------------", 1, 1);
 
     // TABLE HEADER
-    printer.printLeftRight(
-      "ITEM_NAME",
-      "QTY  RATE  TOTAL",
-      1,
-    );
+    printer.printLeftRight("ITEM", "QTY KG TOTAL", 1);
+    printer.printCustom("--------------------------------", 1, 1);
+
+    // 🔥 PRINT EACH BILL ITEM
+    for (final item in widget.billItems) {
+      printer.printCustom(item.name, 1, 0);
+
+      printer.printLeftRight(
+        "",
+        "${item.quantity}   ${item.kg}   ${item.total}",
+        1,
+      );
+    }
 
     printer.printCustom("--------------------------------", 1, 1);
 
-    // ITEM NAME (FULL LINE)
-    printer.printCustom("BONELESS CHICKEN", 1, 0);
-
-    // ITEM VALUES (RIGHT ALIGNED)
+    // GRAND TOTAL
     printer.printLeftRight(
-      "",
-      "2   300.00 600.00",
-      1,
-    );
-
-    printer.printCustom("--------------------------------", 1, 1);
-
-    // NET TOTAL (BOLD & BIG)
-    printer.printLeftRight(
-      "NET",
-      "600.00",
+      "NET TOTAL",
+      "₹ ${widget.grandTotal}",
       2,
     );
 
     printer.printCustom("--------------------------------", 1, 1);
 
-    // PAYMENT MODE
     printer.printCustom("PAYMENT MODE : CASH", 1, 1);
-
     printer.printNewLine();
-
-    // FOOTER
-    printer.printCustom("THANK YOU ! VISIT AGAIN", 1, 1);
+    printer.printCustom("THANK YOU! VISIT AGAIN", 1, 1);
     printer.printNewLine();
 
     printer.paperCut();
@@ -147,8 +148,8 @@ class _PrintscreenState extends State<Printscreen> {
             const SizedBox(height: 20),
 
             ElevatedButton(
-              onPressed: isConnected ? printTestBill : null,
-              child: const Text("PRINT TEST BILL"),
+              onPressed: isConnected ? printBill : null,
+              child: const Text("PRINT BILL"),
             ),
           ],
         ),
