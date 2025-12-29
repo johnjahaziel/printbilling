@@ -1,5 +1,31 @@
+import 'dart:convert';
+
+import 'package:blue_thermal_printer_plus/blue_thermal_printer_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:printer/printscreen.dart';
+import 'package:http/http.dart' as http;
+import 'package:printer/bluetooth.dart';
+import 'package:printer/customdrawer.dart';
+import 'package:printer/styles.dart';
+
+class Product {
+  final int id;
+  final String name;
+  final int price;
+
+  Product({
+    required this.id,
+    required this.name,
+    required this.price,
+  });
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product(
+      id: json['id'],
+      name: json['name'],
+      price: int.parse(double.parse(json['price']).toStringAsFixed(0)),
+    );
+  }
+}
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -9,6 +35,8 @@ class Homescreen extends StatefulWidget {
 }
 
 class _HomescreenState extends State<Homescreen> {
+  final BlueThermalPrinterPlus printer = BlueThermalPrinterPlus();
+  
   final TextEditingController amount = TextEditingController();
   final TextEditingController quantity = TextEditingController();
   final TextEditingController kg = TextEditingController();
@@ -24,9 +52,55 @@ class _HomescreenState extends State<Homescreen> {
 
   int get grandTotal => billItems.fold(0, (sum, item) => sum + item.total);
 
+  List<Product> products = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  Future<void> loadProducts() async {
+    try {
+      final result = await fetchProducts();
+      setState(() {
+        products = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<List<Product>> fetchProducts() async {
+    final url = Uri.parse('https://billing.1bluetooth.com/api/shops/SHOP3/products');
+
+    final response = await http.get(url);
+
+    final data = json.decode(response.body);
+
+    if (response.statusCode == 200) {
+
+      final List products = data['products'];
+      return products.map((e) => Product.fromJson(e)).toList();
+
+    } else {
+      throw Exception('Failed to load products');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+
+    loadProducts();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Bluetooth(),
+      );
+    });
 
     quantity.addListener(updateSelectedItem);
     kg.addListener(updateSelectedItem);
@@ -74,25 +148,97 @@ class _HomescreenState extends State<Homescreen> {
     totalamount.clear();
   }
 
+  void printBill() async {
+    if (!(await printer.isConnected ?? false)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Printer not connected")),
+      );
+      return;
+    }
+
+    printer.printCustom("SP MARY CHICKEN", 2, 1);
+    printer.printCustom("STALL", 2, 1);
+    printer.printCustom("Thalamuthu Nagar", 1, 1);
+    printer.printCustom("CONTACT NO : 9790053143", 1, 1);
+
+    printer.printCustom("--------------------------------", 1, 1);
+
+    final now = DateTime.now();
+    printer.printLeftRight(
+      "DATE",
+      "${now.day}-${now.month}-${now.year}",
+      1,
+    );
+    printer.printLeftRight(
+      "TIME",
+      "${now.hour}:${now.minute}",
+      1,
+    );
+
+    printer.printCustom("--------------------------------", 1, 1);
+
+    printer.printLeftRight("ITEM", "QTY KG TOTAL", 1);
+    printer.printCustom("--------------------------------", 1, 1);
+
+    for (final item in billItems) {
+      printer.printCustom(item.name, 1, 0);
+
+      printer.printLeftRight(
+        "",
+        "${item.quantity}   ${item.kg}   ${item.total}",
+        1,
+      );
+    }
+
+    printer.printCustom("--------------------------------", 1, 1);
+
+    printer.printLeftRight(
+      "NET TOTAL",
+      "₹ $grandTotal",
+      2,
+    );
+
+    printer.printCustom("--------------------------------", 1, 1);
+
+    printer.printCustom("PAYMENT MODE : CASH", 1, 1);
+    printer.printNewLine();
+    printer.printCustom("THANK YOU! VISIT AGAIN", 1, 1);
+    printer.printNewLine();
+
+    printer.paperCut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
+        drawer: Customdrawer(),
         backgroundColor: Colors.grey.shade100,
-      
         body: Row(
           children: [
-      
+            
             SizedBox(
               height: double.infinity,
               width: 50,
               child: Column(
                 children: [
+                  Builder(
+                    builder: (context) => IconButton(
+                      onPressed: () {
+                        Scaffold.of(context).openDrawer();
+                      },
+                      icon: const Icon(Icons.menu),
+                    ),
+                  ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => Bluetooth(),
+                      );
+                    },
                     icon: Icon(
-                      Icons.menu,
-                      color: Colors.black87,
+                      Icons.bluetooth
                     )
                   )
                 ],
@@ -139,7 +285,7 @@ class _HomescreenState extends State<Homescreen> {
                   Container(
                     width: double.infinity,
                     height: 55,
-                    color: Color.fromARGB(255, 0, 87, 150),
+                    color: kblue,
                     child: Padding(
                       padding: const EdgeInsets.only(left: 5),
                       child: Row(
@@ -201,7 +347,7 @@ class _HomescreenState extends State<Homescreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.all(12),
-                    color: Color.fromARGB(255, 0, 87, 150),
+                    color: kblue,
                     child: Row(
                       children: [
                         Text(
@@ -233,70 +379,28 @@ class _HomescreenState extends State<Homescreen> {
                     Expanded(
                       flex: 5,
                       child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10,vertical: 10),
-                        child: GridView.count(
-                          crossAxisCount: 5,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 1.5,
-                          children: [
-                            _ItemButton(
-                              title: "WITH SKIN",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "WITHOUT SKIN",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Boneless Chicken",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Kadai",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Country Chicken",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Apple",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Banana",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Grape",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Orange",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Papaya",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                            _ItemButton(
-                              title: "Guava",
-                              price: 220,
-                              onTap: addItem,
-                            ),
-                          ],
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        child: isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : errorMessage != null
+                                ? Center(child: Text(errorMessage!))
+                                : GridView.builder(
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 5,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
+                                      childAspectRatio: 1.5,
+                                    ),
+                                    itemCount: products.length,
+                                    itemBuilder: (context, index) {
+                                      final item = products[index];
+                                      return _ItemButton(
+                                        title: item.name.toUpperCase(),
+                                        price: item.price,
+                                        onTap: addItem,
+                                      );
+                                    },
+                                  ),
                       ),
                     ),
                     Container(
@@ -312,22 +416,24 @@ class _HomescreenState extends State<Homescreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: RawMaterialButton(
-                              fillColor: Color.fromARGB(255, 0, 87, 150),
+                              fillColor: kblue,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20)
                               ),
                               onPressed: () {
                                 if (billItems.isEmpty) return;
 
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => Printscreen(
-                                      billItems: billItems,
-                                      grandTotal: grandTotal,
-                                    ),
-                                  ),
-                                );
+                                // Navigator.push(
+                                //   context,
+                                //   MaterialPageRoute(
+                                //     builder: (_) => Printscreen(
+                                //       billItems: billItems,
+                                //       grandTotal: grandTotal,
+                                //     ),
+                                //   ),
+                                // );
+
+                                printBill();
                               },
                               child: Text(
                                 'PRINT',
@@ -420,7 +526,7 @@ class _BillRow extends StatelessWidget {
     return RawMaterialButton(
       onPressed: onSelect,
       shape: Border.all(
-        color: isSelected ? Color.fromARGB(255, 0, 87, 150) : Colors.transparent,
+        color: isSelected ? kblue : Colors.transparent,
       ),
       child: Column(
         children: [
