@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
 import 'package:printer/homescreen.dart';
 
 class Login extends StatefulWidget {
@@ -17,6 +21,45 @@ class _LoginState extends State<Login> {
     usernameController.dispose();
     passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final url = Uri.parse('https://billing.1bluetooth.com/api/login');
+
+    try {
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: jsonEncode({
+          'username': usernameController.text,
+          'password': passwordController.text,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => Homescreen()),
+          ((route) => false)
+        );
+
+        Fluttertoast.showToast(msg: responseData['message']);
+      } else {
+        Fluttertoast.showToast(msg: responseData['message']);
+
+        print(responseData);
+      }
+
+    } catch (e) {
+      print(e);
+    }
   }
 
   @override
@@ -80,17 +123,7 @@ class _LoginState extends State<Login> {
               height: 48,
               child: ElevatedButton(
                 onPressed: () {
-                  final username = usernameController.text;
-                  final password = passwordController.text;
-            
-                  print('Username: $username');
-                  print('Password: $password');
-
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => Homescreen()),
-                    ((route) => false)
-                  );
+                  _handleLogin();
                 },
                 child: const Text('Login'),
               ),
